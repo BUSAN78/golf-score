@@ -3,7 +3,7 @@
 ## 現在の状態
 
 - アプリ名: GOLF SCORE
-- Android版: Version 1.13.1（versionCode 21）
+- Android版: Version 1.14.0（versionCode 22）
 - 開発環境: Android Studio / Kotlin / Jetpack Compose
 - 対象端末: Galaxy S25
 - データ保存: 端末内の SharedPreferences（JSON）
@@ -43,6 +43,7 @@
 - Webコース情報を取得できない場合は、同じ組み合わせで手入力したPAR／距離を端末内から再利用
 - プレー年月日をタップするとカレンダーが開き、任意の日付を選択可能
 - プレーヤー名は登録済み候補からの選択と、その場での直接入力の両方に対応
+- ドラコン・ニアピンの対象ホールは、基本情報の前半／後半コース名ごとに1〜9番で指定（IN→OUTや3コース構成にも対応）
 
 ## 検証モード
 

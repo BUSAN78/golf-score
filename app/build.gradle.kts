@@ -18,8 +18,8 @@ android {
         applicationId = "jp.example.golfscore"
         minSdk = 26
         targetSdk = 36
-        versionCode = 21
-        versionName = "1.13.1"
+        versionCode = 22
+        versionName = "1.14.0"
     }
 
     buildFeatures {

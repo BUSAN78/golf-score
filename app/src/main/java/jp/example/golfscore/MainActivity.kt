@@ -617,19 +617,15 @@ fun RoundOptionsScreen(onBack: () -> Unit, onStart: (RoundData) -> Unit) {
     var tateYokoCarryDraw by rememberSaveable { mutableStateOf(false) }
     var tateYokoRotate by rememberSaveable { mutableStateOf(false) }
     var showTateYokoSettings by remember { mutableStateOf(false) }
-    var longDriveHoles by remember { mutableStateOf<Set<Int>>(emptySet()) }
-    var nearPinHoles by remember { mutableStateOf<Set<Int>>(emptySet()) }
     BackHandler(onBack = onBack)
-    val valid = (!useLongDrive || longDriveHoles.isNotEmpty()) && (!useNearPin || nearPinHoles.isNotEmpty())
     Scaffold(
         topBar = { TopAppBar(title = { Text("ラウンドオプション") }, navigationIcon = { TextButton(onClick = onBack) { Text("戻る") } }) }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("使用するルールを選択してください。", color = Color.Gray)
             OptionCheckbox("ドラコン", useLongDrive) { useLongDrive = it }
-            if (useLongDrive) HoleSelection("ドラコンホール", longDriveHoles) { longDriveHoles = it }
             OptionCheckbox("ニアピン", useNearPin) { useNearPin = it }
-            if (useNearPin) HoleSelection("ニアピンホール", nearPinHoles) { nearPinHoles = it }
+            if (useLongDrive || useNearPin) Text("対象ホールは、基本情報で前半・後半コースを決めた後に「オプション」タブでコース別に設定します。", fontSize = 12.sp, color = Color.Gray)
             OptionCheckbox("オリンピック", useOlympic) { useOlympic = it }
             OptionCheckbox("たてよこ", useTateYoko) {
                 useTateYoko = it
@@ -638,7 +634,6 @@ fun RoundOptionsScreen(onBack: () -> Unit, onStart: (RoundData) -> Unit) {
             if (useTateYoko) OutlinedButton(onClick = { showTateYokoSettings = true }, modifier = Modifier.fillMaxWidth()) {
                 Text("たてよこの設定を変更")
             }
-            if (!valid) Text("ドラコン・ニアピンを使用する場合は、対象ホールを選択してください。", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
             Spacer(Modifier.height(12.dp))
             Button(
                 onClick = {
@@ -647,11 +642,9 @@ fun RoundOptionsScreen(onBack: () -> Unit, onStart: (RoundData) -> Unit) {
                         useOlympic = useOlympic, useTateYoko = useTateYoko,
                         tateYokoPositions = tateYokoPositions, tateYokoScoring = tateYokoScoring,
                         tateYokoWinPoints = tateYokoWinPoints, tateYokoCarryDraw = tateYokoCarryDraw,
-                        tateYokoRotate = tateYokoRotate,
-                        longDriveHoles = longDriveHoles.sorted(), nearPinHoles = nearPinHoles.sorted()
+                        tateYokoRotate = tateYokoRotate
                     ))
                 },
-                enabled = valid,
                 modifier = Modifier.fillMaxWidth().height(54.dp)
             ) { Text("ラウンド入力を開始") }
         }
@@ -677,6 +670,7 @@ private fun RoundOptionsEditor(
     nearPinHoles: Set<Int>, onNearPinHoles: (Set<Int>) -> Unit,
     useOlympic: Boolean, onUseOlympic: (Boolean) -> Unit,
     useTateYoko: Boolean, onUseTateYoko: (Boolean) -> Unit,
+    frontCourse: String, backCourse: String,
     playerLabels: List<String>,
     longDriveParticipants: Set<Int>, onLongDriveParticipants: (Set<Int>) -> Unit,
     nearPinParticipants: Set<Int>, onNearPinParticipants: (Set<Int>) -> Unit,
@@ -697,12 +691,12 @@ private fun RoundOptionsEditor(
         OptionCheckbox("ドラコン", useLongDrive, onUseLongDrive)
         if (useLongDrive) {
             ParticipantSelection("ドラコン参加者", playerLabels, longDriveParticipants, 1, onLongDriveParticipants)
-            HoleSelection("ドラコンホール", longDriveHoles, onLongDriveHoles)
+            CourseHoleSelection("ドラコンホール", frontCourse, backCourse, longDriveHoles, onLongDriveHoles)
         }
         OptionCheckbox("ニアピン", useNearPin, onUseNearPin)
         if (useNearPin) {
             ParticipantSelection("ニアピン参加者", playerLabels, nearPinParticipants, 1, onNearPinParticipants)
-            HoleSelection("ニアピンホール", nearPinHoles, onNearPinHoles)
+            CourseHoleSelection("ニアピンホール", frontCourse, backCourse, nearPinHoles, onNearPinHoles)
         }
         OptionCheckbox("オリンピック", useOlympic, onUseOlympic)
         if (useOlympic) ParticipantSelection("オリンピック参加者", playerLabels, olympicParticipants, 2, onOlympicParticipants)
@@ -850,16 +844,20 @@ private fun OptionCheckbox(label: String, checked: Boolean, onChecked: (Boolean)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun HoleSelection(label: String, selected: Set<Int>, onSelected: (Set<Int>) -> Unit) {
+private fun CourseHoleSelection(label: String, frontCourse: String, backCourse: String, selected: Set<Int>, onSelected: (Set<Int>) -> Unit) {
     Column(Modifier.padding(start = 8.dp, bottom = 6.dp)) {
-        Text(label, fontSize = 13.sp, color = Color.Gray)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            (1..18).forEach { hole ->
-                FilterChip(
-                    selected = hole in selected,
-                    onClick = { onSelected(if (hole in selected) selected - hole else selected + hole) },
-                    label = { Text(hole.toString()) }
-                )
+        Text(label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        listOf(frontCourse.ifBlank { "前半コース" } to 0, backCourse.ifBlank { "後半コース" } to 9).forEach { (courseName, offset) ->
+            Text(courseName, fontSize = 13.sp, color = GolfGreen, fontWeight = FontWeight.SemiBold)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                (1..9).forEach { localHole ->
+                    val storedHole = offset + localHole
+                    FilterChip(
+                        selected = storedHole in selected,
+                        onClick = { onSelected(if (storedHole in selected) selected - storedHole else selected + storedHole) },
+                        label = { Text(localHole.toString()) }
+                    )
+                }
             }
         }
     }
@@ -1018,7 +1016,7 @@ fun ScorecardScreen(round: RoundData, olympicPoints: OlympicPoints, onBack: () -
                     Spacer(Modifier.height(10.dp))
                     Text("ドラコン・ニアピン結果", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = GolfGreen)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("前半" to (1..9), "後半" to (10..18)).forEach { (halfLabel, holes) ->
+                        listOf(round.frontCourse.ifBlank { "前半コース" } to (1..9), round.backCourse.ifBlank { "後半コース" } to (10..18)).forEach { (halfLabel, holes) ->
                             Surface(
                                 modifier = Modifier.weight(1f),
                                 color = Color(0xFFF4F8F4),
@@ -1030,11 +1028,12 @@ fun ScorecardScreen(round: RoundData, olympicPoints: OlympicPoints, onBack: () -
                                     val targetHoles = holes.filter { it in round.longDriveHoles || it in round.nearPinHoles }
                                     if (targetHoles.isEmpty()) Text("対象なし", fontSize = 11.sp, color = Color.Gray)
                                     targetHoles.forEach { holeNumber ->
+                                        val localHole = (holeNumber - 1) % 9 + 1
                                         if (holeNumber in round.longDriveHoles) {
-                                            Text("${holeNumber}H dr　${round.longDriveWinners[holeNumber - 1].ifBlank { "未入力" }}", fontSize = 12.sp)
+                                            Text("${localHole}H dr　${round.longDriveWinners[holeNumber - 1].ifBlank { "未入力" }}", fontSize = 12.sp)
                                         }
                                         if (holeNumber in round.nearPinHoles) {
-                                            Text("${holeNumber}H np　${round.nearPinWinners[holeNumber - 1].ifBlank { "未入力" }}", fontSize = 12.sp)
+                                            Text("${localHole}H np　${round.nearPinWinners[holeNumber - 1].ifBlank { "未入力" }}", fontSize = 12.sp)
                                         }
                                     }
                                 }
@@ -1043,7 +1042,7 @@ fun ScorecardScreen(round: RoundData, olympicPoints: OlympicPoints, onBack: () -
                     }
                     Spacer(Modifier.height(6.dp))
                     Text("獲得数まとめ", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    olympicPlayers.forEachIndexed { index, player ->
+                    activePlayers.forEachIndexed { index, player ->
                         val drCount = round.longDriveHoles.count { hole -> round.longDriveWinners.getOrElse(hole - 1) { "" } == player.name }
                         val npCount = round.nearPinHoles.count { hole -> round.nearPinWinners.getOrElse(hole - 1) { "" } == player.name }
                         Surface(color = playerBackground(index), shape = RoundedCornerShape(7.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
@@ -1535,6 +1534,7 @@ fun EditRoundScreen(initial: RoundData, olympicPoints: OlympicPoints, onCancel: 
                 nearPinHoles = nearPinHoles, onNearPinHoles = { nearPinHoles = it },
                 useOlympic = useOlympic, onUseOlympic = { useOlympic = it },
                 useTateYoko = useTateYoko, onUseTateYoko = { useTateYoko = it },
+                frontCourse = frontCourse, backCourse = backCourse,
                 playerLabels = List(4) { players.getOrNull(it)?.name.orEmpty().ifBlank { "プレーヤー${it + 1}" } },
                 longDriveParticipants = longDriveParticipants, onLongDriveParticipants = { longDriveParticipants = it },
                 nearPinParticipants = nearPinParticipants, onNearPinParticipants = { nearPinParticipants = it },
@@ -1934,7 +1934,7 @@ fun ScoreTab(
             TextButton(onClick = { if (hole > 0) hole-- }, enabled = hole > 0) { Text("◀", color = Color.White) }
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(if (hole < 9) frontCourse.ifBlank { "前半" } else backCourse.ifBlank { "後半" }, color = Color.White, fontSize = 12.sp)
-                Text("${hole + 1}H", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                Text("${hole % 9 + 1}H", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
                 val events = buildList {
                     if (useLongDrive && hole + 1 in longDriveHoles) add("ドラコン")
                     if (useNearPin && hole + 1 in nearPinHoles) add("ニアピン")
